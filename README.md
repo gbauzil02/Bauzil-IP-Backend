@@ -7,8 +7,10 @@ First install the virtual environment package using:
 pip install virtualenv
 
 
+
 To create virtual environment:
 virtualenv venv
+
 
 
 To activate virtual environment:
@@ -22,6 +24,7 @@ To install Flask framework:
 pip install Flask
 
 
+
 Set the Flask app environment variable to index.py:
 
 Windows: set FLASK_APP=index.py
@@ -29,9 +32,11 @@ Windows: set FLASK_APP=index.py
 Linux/MacOS: export FLASK_APP=index.py
 
 
+
 To execute the Python file run the command:
 
 flask run 
+
 
 
 Sources and more information:
