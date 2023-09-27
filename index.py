@@ -1,24 +1,411 @@
-"""
-The following URL was used to create the python backend: 
-https://tms-dev-blog.com/python-backend-with-javascript-frontend-how-to/
-"""
-
-from flask import Flask, render_template
+from flask import Flask, render_template, url_for, redirect, request
 import requests
 import json
 import flask
 from flask_cors import CORS
+import mysql.connector
+import decimal
 
 app = Flask(__name__)
 CORS(app)
 
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, decimal.Decimal):
+            return str(o)
+        return super().default(o)
+class SetEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, set):
+            return list(obj)
+        return json.JSONEncoder.default(self, obj)
+
+class MultipleJsonEncoders():
+    """
+    Combine multiple JSON encoders
+    """
+    def __init__(self, *encoders):
+        self.encoders = encoders
+        self.args = ()
+        self.kwargs = {}
+
+    def default(self, obj):
+        for encoder in self.encoders:
+            try:
+                return encoder(*self.args, **self.kwargs).default(obj)
+            except TypeError:
+                pass
+        raise TypeError(f'Object of type {obj.__class__.__name__} is not JSON serializable')
+
+    def __call__(self, *args, **kwargs):
+        self.args = args
+        self.kwargs = kwargs
+        enc = json.JSONEncoder(*args, **kwargs)
+        enc.default = self.default
+        return enc
+
+
+
 # Root address of the backend
 @app.route('/')
-def hello_world():
-    data = ''
-    return render_template('index.html', dataToRender=data)
+def index():
+    return render_template('index.html')
 
-# Health-check endpoint
-@app.route('/health', methods=["GET"])
-def health():
-    return "Hello World"
+# Links to other html frontend pages
+@app.route('/movies')
+def movies():
+    return render_template('movies.html')
+
+@app.route('/customer')
+def customer():
+    return render_template('customer.html')
+
+
+# Gets top 5 movies in descending order for home page
+@app.route('/films', methods=["GET"])
+def films():
+    cnx = mysql.connector.connect(user='root', password='password',
+                              host='127.0.0.1',
+                              database='sakila')
+    cursor = cnx.cursor()
+
+    query = ("SELECT top.film_id, film.title,  top.rentals " 
+    "FROM(SELECT DISTINCT film_id, COUNT(*) as rentals " 
+    "FROM rental "
+    "JOIN inventory "
+    "ON rental.inventory_id = inventory.inventory_id "
+    "GROUP BY film_id ORDER BY rentals DESC LIMIT 5) AS top "
+    "JOIN film ON film.film_id = top.film_id;")
+    cursor.execute(query)
+    row_headers=[x[0] for x in cursor.description] #this will extract row headers
+    myresult = cursor.fetchall()
+    json_data=[]
+    for result in myresult:
+        json_data.append(dict(zip(row_headers,result)))
+    return json.dumps(json_data)
+
+# Gets top 5 actors in descending order for home page
+@app.route('/actors', methods=["GET"])
+def actors():
+    cnx = mysql.connector.connect(user='root', password='password',
+                              host='127.0.0.1',
+                              database='sakila')
+    cursor = cnx.cursor()
+
+    query = ("SELECT actor_films.actor_id, actor_films.first_name, actor_films.last_name, COUNT(*) as movies "
+    "FROM( "
+    "SELECT actor.actor_id, actor.first_name, actor.last_name, film_actor.film_id "
+    "FROM actor "
+    "JOIN film_actor "
+    "ON actor.actor_id = film_actor.actor_id) AS actor_films "
+    "GROUP BY actor_films.actor_id, actor_films.first_name, actor_films.last_name "
+    "ORDER BY movies DESC "
+    "LIMIT 5;")
+    cursor.execute(query)
+    row_headers=[x[0] for x in cursor.description] #this will extract row headers
+    myresult = cursor.fetchall()
+    json_data=[]
+    for result in myresult:
+        json_data.append(dict(zip(row_headers,result)))
+    return json.dumps(json_data)
+
+# Gets movies by first name
+@app.route('/getName', methods=["POST"])
+def getName():
+    received_data = request.get_json()
+    cnx = mysql.connector.connect(user='root', password='password',
+                              host='127.0.0.1',
+                              database='sakila')
+    cursor = cnx.cursor()
+    query = ("SELECT f.film_id, f.title, f.description, f.release_year, f.rental_duration, f.rental_rate, f.length, f.rating, f.special_features, category.name as genre "
+            "FROM ( "
+                "SELECT film.film_id, film.title, film.description, film.release_year, film.rental_duration, film.rental_rate, film.length, film.rating, film.special_features, film_category.category_id "
+                "FROM film "
+                "JOIN film_category "
+                "ON film.film_id = film_category.film_id) as f "
+            "JOIN category "
+            "ON category.category_id = f.category_id "
+            "WHERE f.title = %s;")
+    cursor.execute(query,(received_data["data"],))
+    print(f"received data: {received_data}")
+    row_headers=[x[0] for x in cursor.description] #this will extract row headers
+    myresult = cursor.fetchall()
+    json_data=[]
+    for result in myresult:
+        json_data.append(dict(zip(row_headers,result)))
+    encoder = MultipleJsonEncoders(DecimalEncoder, SetEncoder)
+    return flask.Response(response=json.dumps(json_data, cls=encoder), status=201)
+
+# Gets movies by genre
+@app.route('/genre', methods=["POST"])
+def genre():
+    received_data = request.get_json()
+    cnx = mysql.connector.connect(user='root', password='password',
+                              host='127.0.0.1',
+                              database='sakila')
+    cursor = cnx.cursor()
+    query = ("SELECT f.film_id, f.title, f.description, f.release_year, f.rental_duration, f.rental_rate, f.length, f.rating, f.special_features, category.name as genre "
+            "FROM ( "
+                "SELECT film.film_id, film.title, film.description, film.release_year, film.rental_duration, film.rental_rate, film.length, film.rating, film.special_features, film_category.category_id "
+                "FROM film "
+                "JOIN film_category "
+                "ON film.film_id = film_category.film_id) as f "
+            "JOIN category "
+            "ON category.category_id = f.category_id "
+            "WHERE category.name = %s " 
+            "LIMIT 1000;")
+    cursor.execute(query,(received_data["data"],))
+    print(f"received data: {received_data}")
+    row_headers=[x[0] for x in cursor.description] #this will extract row headers
+    myresult = cursor.fetchall()
+    json_data=[]
+    for result in myresult:
+        json_data.append(dict(zip(row_headers,result)))
+    encoder = MultipleJsonEncoders(DecimalEncoder, SetEncoder)
+    return flask.Response(response=json.dumps(json_data, cls=encoder), status=201)
+
+# Gets movies by actor's first and last name
+@app.route('/byActor', methods=["POST"])
+def byActor():
+    received_data = request.get_json()
+    cnx = mysql.connector.connect(user='root', password='password',
+                              host='127.0.0.1',
+                              database='sakila')
+    cursor = cnx.cursor()
+    query = ("SELECT faf3.title, faf3.description, faf3.release_year, faf3.rental_duration, faf3.rental_rate, faf3.length, faf3.rating, faf3.special_features, category.name as genre, faf3.first_name, faf3.last_name "
+    "FROM "
+        "(SELECT faf2.film_id, faf2.title, faf2.description, faf2.release_year, faf2.rental_duration, faf2.rental_rate, faf2.length, faf2.rating, faf2.special_features, faf2.first_name, faf2.last_name, film_category.category_id "
+        "FROM "
+            "(SELECT faf.film_id, faf.title, faf.description, faf.release_year, faf.rental_duration, faf.rental_rate, faf.length, faf.rating, faf.special_features, actor.first_name, actor.last_name "
+            "FROM "
+                "(SELECT film.film_id, film.title, film.description, film.release_year, film.rental_duration, film.rental_rate, film.length, film.rating, film.special_features, film_actor.actor_id "
+                "FROM film_actor "
+                "JOIN film "
+                "ON film_actor.film_id = film.film_id) as faf "
+            "JOIN actor "
+            "ON actor.actor_id = faf.actor_id) as faf2 "
+        "JOIN film_category "
+        "ON film_category.film_id = faf2.film_id) as faf3 "
+    "JOIN category "
+    "ON category.category_id = faf3.category_id "
+    "WHERE faf3.first_name = %s AND faf3.last_name = %s;")
+    data = received_data["data"].split(' ')
+    cursor.execute(query,(data[0],data[1]))
+    print(f"received data: {received_data}")
+    row_headers=[x[0] for x in cursor.description] #this will extract row headers
+    myresult = cursor.fetchall()
+    json_data=[]
+    for result in myresult:
+        json_data.append(dict(zip(row_headers,result)))
+    encoder = MultipleJsonEncoders(DecimalEncoder, SetEncoder)
+    return flask.Response(response=json.dumps(json_data, cls=encoder), status=201)
+
+# Gets the first 10 customers in the customer table
+@app.route('/getCust', methods=["GET"])
+def getCust():
+    received_data = request.get_json()
+    cnx = mysql.connector.connect(user='root', password='password',
+                              host='127.0.0.1',
+                              database='sakila')
+    cursor = cnx.cursor()
+    query = ("SELECT customer_id, first_name, last_name "
+            "FROM customer " 
+            "LIMIT 10")
+    cursor.execute(query)
+    row_headers=[x[0] for x in cursor.description] #this will extract row headers
+    myresult = cursor.fetchall()
+    json_data=[]
+    for result in myresult:
+        json_data.append(dict(zip(row_headers,result)))
+    return json.dumps(json_data)
+
+# Gets customer information using id
+@app.route('/getId', methods=["POST"])
+def getId():
+    received_data = request.get_json()
+    cnx = mysql.connector.connect(user='root', password='password',
+                              host='127.0.0.1',
+                              database='sakila')
+    cursor = cnx.cursor()
+    query = ("SELECT c2.customer_id, c2.store_id, c2.first_name, c2.last_name, c2.email, c2.address, c2.district, c2.postal_code, c2.phone, c2.city, c2.country, r.count "
+            "FROM( "
+                "SELECT c.customer_id, c.store_id, c.first_name, c.last_name, c.email, addr.address, addr.district, addr.postal_code, addr.phone,addr.city, addr.country "
+                "FROM Customer as c "
+                "JOIN (SELECT a.address_id, a.address, a.district, a.postal_code, a.phone, c.city, c.country "
+                    "FROM address as a "
+                    "JOIN (SELECT city.city_id, city.city, country.country " 
+                        "FROM city "
+                        "JOIN country "
+                        "ON city.country_id = country.country_id) as c "
+                    "ON c.city_id = a.city_id) as addr "
+                "ON c.address_id = addr.address_id) as c2 "
+            "JOIN(SELECT customer.customer_id, customer.first_name, customer.last_name, COUNT(*) as count "
+                "FROM rental "
+                "JOIN customer "
+                "ON rental.customer_id = customer.customer_id "
+                "GROUP BY customer.customer_id, customer.first_name, customer.last_name) as r "
+            "ON r.customer_id = c2. customer_id "
+            "WHERE c2.customer_id = %s;") 
+    cursor.execute(query, (int(received_data["data"]),))
+    print(f"received data: {received_data}")
+    row_headers=[x[0] for x in cursor.description] #this will extract row headers
+    myresult = cursor.fetchall()
+    json_data=[]
+    for result in myresult:
+        json_data.append(dict(zip(row_headers,result)))
+    encoder = MultipleJsonEncoders(DecimalEncoder, SetEncoder)
+    return flask.Response(response=json.dumps(json_data, cls=encoder), status=201)
+
+# Gets customer when using id
+@app.route('/custById', methods=["POST"])
+def custById():
+    received_data = request.get_json()
+    cnx = mysql.connector.connect(user='root', password='password',
+                              host='127.0.0.1',
+                              database='sakila')
+    cursor = cnx.cursor()
+    query = ("SELECT customer_id, first_name, last_name "
+            "FROM customer " 
+            "WHERE customer_id = %s")
+    cursor.execute(query, (int(received_data["data"]),))
+    print(f"received data: {received_data}")
+    row_headers=[x[0] for x in cursor.description] #this will extract row headers
+    myresult = cursor.fetchall()
+    json_data=[]
+    for result in myresult:
+        json_data.append(dict(zip(row_headers,result)))
+    print(json_data)
+    encoder = MultipleJsonEncoders(DecimalEncoder, SetEncoder)
+    return flask.Response(response=json.dumps(json_data, cls=encoder), status=201)
+
+# Gets customer when using first name
+@app.route('/custByFirst', methods=["POST"])
+def custByFirst():
+    received_data = request.get_json()
+    cnx = mysql.connector.connect(user='root', password='password',
+                              host='127.0.0.1',
+                              database='sakila')
+    cursor = cnx.cursor()
+    query = ("SELECT customer_id, first_name, last_name "
+            "FROM customer " 
+            "WHERE first_name = %s")
+    cursor.execute(query, (received_data["data"],))
+    print(f"received data: {received_data}")
+    row_headers=[x[0] for x in cursor.description] #this will extract row headers
+    myresult = cursor.fetchall()
+    json_data=[]
+    for result in myresult:
+        json_data.append(dict(zip(row_headers,result)))
+    print(json_data)
+    encoder = MultipleJsonEncoders(DecimalEncoder, SetEncoder)
+    return flask.Response(response=json.dumps(json_data, cls=encoder), status=201)
+
+#Gets customer when using last name
+@app.route('/custByLast', methods=["POST"])
+def custByLast():
+    received_data = request.get_json()
+    cnx = mysql.connector.connect(user='root', password='password',
+                              host='127.0.0.1',
+                              database='sakila')
+    cursor = cnx.cursor()
+    query = ("SELECT customer_id, first_name, last_name "
+            "FROM customer " 
+            "WHERE last_name = %s")
+    cursor.execute(query, (received_data["data"],))
+    print(f"received data: {received_data}")
+    row_headers=[x[0] for x in cursor.description] #this will extract row headers
+    myresult = cursor.fetchall()
+    json_data=[]
+    for result in myresult:
+        json_data.append(dict(zip(row_headers,result)))
+    print(json_data)
+    encoder = MultipleJsonEncoders(DecimalEncoder, SetEncoder)
+    return flask.Response(response=json.dumps(json_data, cls=encoder), status=201)
+
+# Gets the top 5 actor films in descending order
+@app.route('/topActFilms', methods=["POST"])
+def topActFilms():
+    received_data = request.get_json()
+    cnx = mysql.connector.connect(user='root', password='password',
+                              host='127.0.0.1',
+                              database='sakila')
+    cursor = cnx.cursor()
+    query = ("SELECT fa2.actor_id, fa2.film_id, fa2.first_name, fa2.last_name, fa2.film_id, fa2.title, rent.rentals "
+            "FROM "
+            "(SELECT fa.actor_id, fa.film_id, fa.first_name, fa.last_name, film.title "
+            "FROM "
+            "(SELECT film_actor.actor_id, film_actor.film_id, actor.first_name, actor.last_name "
+            "FROM film_actor "
+            "JOIN actor "
+            "ON actor.actor_id = film_actor.actor_id) as fa "
+            "JOIN film "
+            "ON film.film_id = fa.film_id) as fa2 "
+            "JOIN "
+            "(SELECT top.film_id, film.title, top.rentals "
+            "FROM( "
+                "SELECT DISTINCT film_id, COUNT(*) as rentals "
+                "FROM rental "
+                "JOIN inventory "
+                "ON rental.inventory_id = inventory.inventory_id "
+                "GROUP BY film_id) AS top "
+            "JOIN film "
+            "ON film.film_id = top.film_id "
+            "ORDER BY top.rentals DESC) as rent "
+            "ON fa2.film_id = rent.film_id "
+            "WHERE fa2.first_name = %s AND fa2.last_name = %s " 
+            "ORDER BY top.rentals DESC "
+            "LIMIT 5;")
+    data = received_data["data"].split(' ')
+    cursor.execute(query,(data[0],data[1]))
+    print(f"received data: {received_data}")
+    row_headers=[x[0] for x in cursor.description] #this will extract row headers
+    myresult = cursor.fetchall()
+    json_data=[]
+    for result in myresult:
+        json_data.append(dict(zip(row_headers,result)))
+    encoder = MultipleJsonEncoders(DecimalEncoder, SetEncoder)
+    return flask.Response(response=json.dumps(json_data, cls=encoder), status=201)
+
+# NOT COMPLETE - Adding customer after filling out form
+@app.route('/addCust', methods=["POST"])
+def addCust():
+    received_data = request.get_json()
+    cnx = mysql.connector.connect(user='root', password='password',
+                              host='127.0.0.1',
+                              database='sakila')
+    cursor = cnx.cursor()
+    query = ("SELECT city_id "
+            "FROM city " 
+            "WHERE city = %s")
+    cursor.execute(query, (received_data["city"],))
+    print(f"received data: {received_data}")
+    row_headers=[x[0] for x in cursor.description] #this will extract row headers
+    myresult = cursor.fetchall()
+    json_data=[]
+    for result in myresult:
+        json_data.append(dict(zip(row_headers,result)))
+    print(json_data)
+    query = ("INSERT INTO address_id "
+    "VALUES ( , %s, NULL, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)")
+    city_id = json_data["city_id"]
+    
+    encoder = MultipleJsonEncoders(DecimalEncoder, SetEncoder)
+    return flask.Response(response=json.dumps(json_data, cls=encoder), status=201)
+
+# NOT COMPLETE - Getting a pdf of all rentals
+@app.route('/rentPDF1', methods=["GET"])
+def rentPDF1():
+    cnx = mysql.connector.connect(user='root', password='password',
+                              host='127.0.0.1',
+                              database='sakila')
+    cursor = cnx.cursor()
+    query = ("SELECT * "
+            "FROM rental " 
+            "WHERE staff_id = 1")
+    cursor.execute(query)
+    row_headers=[x[0] for x in cursor.description] #this will extract row headers
+    myresult = cursor.fetchall()
+    json_data=[]
+    for result in myresult:
+        json_data.append(dict(zip(row_headers,result)))
+    return json.dumps(json_data, default=str)
