@@ -370,14 +370,257 @@ def topActFilms():
 @app.route('/addCust', methods=["POST"])
 def addCust():
     received_data = request.get_json()
+
     cnx = mysql.connector.connect(user='root', password='password',
                               host='127.0.0.1',
                               database='sakila')
     cursor = cnx.cursor()
-    query = ("SELECT city_id "
-            "FROM city " 
+    query = ("SELECT city_id  "
+            "FROM city "
             "WHERE city = %s")
     cursor.execute(query, (received_data["city"],))
+    row_headers=[x[0] for x in cursor.description] #this will extract row headers
+    myresult = cursor.fetchall()
+    if myresult == []:
+        cursor = cnx.cursor()
+        query = ("SELECT country_id  "
+                "FROM country "
+                "WHERE country = %s")
+        cursor.execute(query, (received_data["country"],))
+        row_headers=[x[0] for x in cursor.description] #this will extract row headers
+        myresult = cursor.fetchall()
+        if myresult == []:
+            cursor = cnx.cursor()
+            query = ("SELECT MAX(country_id) as country_id "
+                    "FROM country;")
+            cursor.execute(query)
+            row_headers=[x[0] for x in cursor.description] #this will extract row headers
+            myresult = cursor.fetchall()
+            json_data=[]
+            for result in myresult:
+                json_data.append(dict(zip(row_headers,result)))
+            new_id = str(int(json_data[0]["country_id"]) + 1)
+
+            cursor = cnx.cursor()
+            query = ("INSERT INTO country(country_id, country) VALUES (%s, %s);")
+            cursor.execute(query, (new_id, received_data["country"].title(),))
+            cnx.commit()
+            country_id = new_id
+        else:
+            json_data=[]
+            for result in myresult:
+                json_data.append(dict(zip(row_headers,result)))
+            country_id = json_data[0]["country_id"]
+
+        cursor = cnx.cursor()
+        query = ("SELECT MAX(city_id) as city_id "
+                "FROM city;")
+        cursor.execute(query)
+        row_headers=[x[0] for x in cursor.description] #this will extract row headers
+        myresult = cursor.fetchall()
+        json_data=[]
+        for result in myresult:
+            json_data.append(dict(zip(row_headers,result)))
+        city_id = str(int(json_data[0]["city_id"]) + 1)
+
+        cursor = cnx.cursor()
+        query = ("INSERT INTO city(city_id, city, country_id) VALUES (%s, %s, %s);")
+        cursor.execute(query, (city_id, received_data["city"].title(), country_id,))
+        cnx.commit()
+
+        cursor = cnx.cursor()
+        query = ("SELECT city_id  "
+                "FROM city "
+                "WHERE city = %s")
+        cursor.execute(query, (received_data["city"],))
+        row_headers=[x[0] for x in cursor.description] #this will extract row headers
+        myresult = cursor.fetchall()
+        json_data=[]
+        for result in myresult:
+            json_data.append(dict(zip(row_headers,result)))
+        city_id = json_data[0]["city_id"]
+    else:
+        json_data=[]
+        for result in myresult:
+            json_data.append(dict(zip(row_headers,result)))
+        city_id = json_data[0]["city_id"]
+    
+    cursor = cnx.cursor()
+    query = ("SELECT MAX(address_id) as address_id "
+            "FROM address;")
+    cursor.execute(query)
+    row_headers=[x[0] for x in cursor.description] #this will extract row headers
+    myresult = cursor.fetchall()
+    json_data=[]
+    for result in myresult:
+        json_data.append(dict(zip(row_headers,result)))
+    address_id = str(int(json_data[0]["address_id"]) + 1)
+    
+    cursor = cnx.cursor()
+    query = ("INSERT INTO address(address_id, address, district, city_id, postal_code, phone, location) "
+            "VALUES (%s, %s, %s, %s, %s, %s, POINT(0,0));")
+    cursor.execute(query, (address_id, received_data["address"].title(), received_data["district"].title(),city_id, received_data["postal"], received_data["phone"],))
+    cnx.commit()
+
+    cursor = cnx.cursor()
+    query = ("SELECT MAX(customer_id) as customer_id "
+            "FROM customer;")
+    cursor.execute(query)
+    row_headers=[x[0] for x in cursor.description] #this will extract row headers
+    myresult = cursor.fetchall()
+    json_data=[]
+    for result in myresult:
+        json_data.append(dict(zip(row_headers,result)))
+    customer_id = str(int(json_data[0]["customer_id"]) + 1)
+
+    cursor = cnx.cursor()
+    query = ("INSERT INTO customer(customer_id, store_id, first_name, last_name, email, address_id, active) "
+            "VALUES (%s, %s, %s, %s, %s, %s, 1);")
+    cursor.execute(query, (customer_id, received_data["store"], received_data["first"].upper(), received_data["last"].upper(), received_data["email"], address_id,))
+    cnx.commit()
+
+    return ('', 204)
+
+#testing adding a customer
+@app.route('/test', methods=["GET"])
+def test():
+    print("1")
+    cnx = mysql.connector.connect(user='root', password='password',
+                              host='127.0.0.1',
+                              database='sakila')
+    cursor = cnx.cursor()
+    query = ("SELECT MAX(customer_id) as customer_id "
+            "FROM customer;")
+    cursor.execute(query)
+    row_headers=[x[0] for x in cursor.description] #this will extract row headers
+    myresult = cursor.fetchall()
+    json_data=[]
+    for result in myresult:
+        json_data.append(dict(zip(row_headers,result)))
+    new_id = int(json_data[0]["customer_id"]) + 1
+    print(new_id)
+    print("2")
+
+    cursor = cnx.cursor()
+    query = ("SELECT MAX(address_id) as address_id "
+            "FROM customer;")
+    cursor.execute(query)
+    row_headers=[x[0] for x in cursor.description] #this will extract row headers
+    myresult = cursor.fetchall()
+    json_data=[]
+    for result in myresult:
+        json_data.append(dict(zip(row_headers,result)))
+    new_id = int(json_data[0]["address_id"]) + 1
+    print(new_id)
+    return json.dumps(json_data)
+    
+
+@app.route('/rentMovie', methods=["POST"])
+def rentMovie():
+    print("1")
+    
+    received_data = request.get_json()
+    print(received_data)
+    cnx = mysql.connector.connect(user='root', password='password',
+                              host='127.0.0.1',
+                              database='sakila')
+    cursor = cnx.cursor()
+    query = ("SELECT store_id "
+            "FROM customer " 
+            "WHERE customer_id = %s")
+    cursor.execute(query, (received_data["customer_id"],))
+    print(f"received data: {received_data}")
+    row_headers=[x[0] for x in cursor.description] #this will extract row headers
+    myresult = cursor.fetchall()
+    json_data=[]
+    for result in myresult:
+        json_data.append(dict(zip(row_headers,result)))
+    print(json_data[0]["store_id"])
+    
+    store_id = json_data[0]["store_id"]
+
+    cursor = cnx.cursor()
+    query = ("SELECT film_id "
+            "FROM film " 
+            "WHERE title = %s")
+    cursor.execute(query, (received_data["title"],))
+    row_headers=[x[0] for x in cursor.description] #this will extract row headers
+    myresult = cursor.fetchall()
+    json_data=[]
+    for result in myresult:
+        json_data.append(dict(zip(row_headers,result)))
+    print(json_data[0]["film_id"])
+
+    film_id = json_data[0]["film_id"]
+    
+    cursor = cnx.cursor()
+    query = ("SELECT inventory_id "
+            "FROM inventory " 
+            "WHERE film_id = %s AND store_id = %s")
+    cursor.execute(query, (film_id, store_id,))
+    row_headers=[x[0] for x in cursor.description] #this will extract row headers
+    myresult = cursor.fetchall()
+    if myresult == ():
+        return ('', 404)
+    else:
+        json_data=[]
+        for result in myresult:
+            json_data.append(dict(zip(row_headers,result)))
+    
+    cursor = cnx.cursor()
+    query = ("SELECT inv.inventory_id "
+            "FROM (SELECT inventory_id "
+                "FROM inventory "
+                "WHERE film_id = %s AND store_id = %s) as inv "
+            "WHERE inv.inventory_id NOT IN (SELECT inventory_id "
+                                        "FROM rental "
+                                        "WHERE return_date IS NULL)")
+    cursor.execute(query, (film_id, store_id,))
+    row_headers=[x[0] for x in cursor.description] #this will extract row headers
+    myresult = cursor.fetchall()
+    if myresult == ():
+        return ('', 404)
+    else:
+        json_data=[]
+        for result in myresult:
+            json_data.append(dict(zip(row_headers,result)))
+    
+    rentMov = json_data[0]["inventory_id"]
+
+    cursor = cnx.cursor()
+    query = ("SELECT MAX(rental_id) as rental_id "
+            "FROM rental")
+    cursor.execute(query)
+    row_headers=[x[0] for x in cursor.description] #this will extract row headers
+    myresult = cursor.fetchall()
+    json_data=[]
+    for result in myresult:
+        json_data.append(dict(zip(row_headers,result)))
+
+    new_id = str(int(json_data[0]["rental_id"]) + 1)
+
+    cursor = cnx.cursor()
+    query = ("INSERT INTO rental(rental_id, inventory_id, customer_id, return_date, staff_id) "
+            "VALUES (%s, %s, %s, NULL, %s)")
+    cursor.execute(query, (new_id, rentMov, received_data["customer_id"], store_id,))
+    cnx.commit()
+
+    return ('', 204)
+
+@app.route('/deleteUser', methods=["POST"])
+def deleteUser():
+    print("1")
+    
+    received_data = request.get_json()
+    print(received_data)
+    cnx = mysql.connector.connect(user='root', password='password',
+                              host='127.0.0.1',
+                              database='sakila')
+    cursor = cnx.cursor()
+    query = ("SELECT address_id "
+            "FROM customer " 
+            "WHERE customer_id = %s")
+    cursor.execute(query, (received_data["customer_id"],))
     print(f"received data: {received_data}")
     row_headers=[x[0] for x in cursor.description] #this will extract row headers
     myresult = cursor.fetchall()
@@ -385,12 +628,37 @@ def addCust():
     for result in myresult:
         json_data.append(dict(zip(row_headers,result)))
     print(json_data)
-    query = ("INSERT INTO address_id "
-    "VALUES ( , %s, NULL, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)")
-    city_id = json_data["city_id"]
-    
-    encoder = MultipleJsonEncoders(DecimalEncoder, SetEncoder)
-    return flask.Response(response=json.dumps(json_data, cls=encoder), status=201)
+    addr_id = json_data[0]["address_id"]
+
+    cursor = cnx.cursor()
+    query = ("DELETE FROM payment "
+             "WHERE customer_id = %s;")
+    cursor.execute(query, (received_data["customer_id"],))
+    cnx.commit()
+
+    cursor = cnx.cursor()
+    query = ("DELETE FROM rental "
+             "WHERE customer_id = %s;")
+    cursor.execute(query, (received_data["customer_id"],))
+    cnx.commit()
+
+    cursor = cnx.cursor()
+    query = ("DELETE FROM customer "
+             "WHERE customer_id = %s;")
+    cursor.execute(query, (received_data["customer_id"],))
+    cnx.commit()
+
+    cursor = cnx.cursor()
+    query = ("DELETE FROM address "
+             "WHERE address_id = %s;")
+    cursor.execute(query, (addr_id,))
+    cnx.commit()
+
+    return ('', 204)
+
+
+
+
 
 # NOT COMPLETE - Getting a pdf of all rentals
 @app.route('/rentPDF1', methods=["GET"])
@@ -401,7 +669,7 @@ def rentPDF1():
     cursor = cnx.cursor()
     query = ("SELECT * "
             "FROM rental " 
-            "WHERE staff_id = 1")
+            "WHERE staff_id = 1 AND return_date IS NULL")
     cursor.execute(query)
     row_headers=[x[0] for x in cursor.description] #this will extract row headers
     myresult = cursor.fetchall()
@@ -409,3 +677,6 @@ def rentPDF1():
     for result in myresult:
         json_data.append(dict(zip(row_headers,result)))
     return json.dumps(json_data, default=str)
+
+
+
