@@ -1,10 +1,11 @@
-from flask import Flask, render_template, url_for, redirect, request
+from flask import Flask, render_template, url_for, redirect, request, Response
 import requests
 import json
 import flask
 from flask_cors import CORS
 import mysql.connector
 import decimal
+from fpdf import FPDF
 
 app = Flask(__name__)
 CORS(app)
@@ -657,10 +658,29 @@ def deleteUser():
     return ('', 204)
 
 
+class FPDF(FPDF):
+    def header(self):
+        if self.page_no() != 1:
+            self.set_font('Courier', '', 12)
+            page_width = self.w - 2 * self.l_margin
+            col_width = page_width/4
+            th = self.font_size
+            self.cell(col_width/2+5, th, "Rental ID", border=1)
+            self.cell(col_width+10, th, "Rental Date", border=1)
+            self.cell(col_width, th, "Inventory ID", border=1)
+            self.cell(col_width, th, "Customer ID", border=1)
+            self.ln(th)
+    
+    def footer(self):
+        self.set_y(-15)
+        pageNum=self.page_no()
+        self.set_font('Times','',12.0) 
+        self.cell(0, 10, str(pageNum), align="C")
+    
 
 
 
-# NOT COMPLETE - Getting a pdf of all rentals
+# Getting a pdf of all rentals
 @app.route('/rentPDF1', methods=["GET"])
 def rentPDF1():
     cnx = mysql.connector.connect(user='root', password='password',
@@ -669,14 +689,112 @@ def rentPDF1():
     cursor = cnx.cursor()
     query = ("SELECT * "
             "FROM rental " 
-            "WHERE staff_id = 1 AND return_date IS NULL")
+            "WHERE staff_id = 1")
     cursor.execute(query)
     row_headers=[x[0] for x in cursor.description] #this will extract row headers
     myresult = cursor.fetchall()
     json_data=[]
     for result in myresult:
         json_data.append(dict(zip(row_headers,result)))
-    return json.dumps(json_data, default=str)
+
+    pdf = FPDF()
+    pdf.add_page()
+    page_width = pdf.w - 2 * pdf.l_margin
+         
+    pdf.set_font('Times','B',14.0) 
+    pdf.cell(page_width, 0.0, 'Store 1 Rentals', align='C')
+    pdf.ln(10)
+
+    pdf.set_font('Courier', '', 12)
+    text_height = 0.17
+        
+    col_width = page_width/4
+        
+    pdf.ln(1)
+        
+    th = pdf.font_size
+    
+    pdf.cell(col_width/2+5, th, "Rental ID", border=1)
+    pdf.cell(col_width+10, th, "Rental Date", border=1)
+    pdf.cell(col_width, th, "Inventory ID", border=1)
+    pdf.cell(col_width, th, "Customer ID", border=1)
+    pdf.ln(th)
+
+    pageNum=pdf.page_no()
+
+    for row in json_data:
+        pdf.cell(col_width/2+5, th, str(row['rental_id']), border=1)
+        pdf.cell(col_width+10, th, str(row['rental_date']), border=1)
+        pdf.cell(col_width, th, str(row['inventory_id']), border=1)
+        pdf.cell(col_width, th, str(row['customer_id']), border=1)
+        pdf.ln(th)
+        
+    pdf.ln(10)
+        
+    pdf.set_font('Times','',10.0) 
+    pdf.cell(page_width, 0.0, '- end of report -', align='C')
+        
+    return Response(pdf.output(dest='S').encode('latin-1'), mimetype='application/pdf', headers={'Content-Disposition':'attachment;filename=store1_rentals.pdf'})
+
+    
+@app.route('/rentPDF2', methods=["GET"])
+def rentPDF2():
+    cnx = mysql.connector.connect(user='root', password='password',
+                              host='127.0.0.1',
+                              database='sakila')
+    cursor = cnx.cursor()
+    query = ("SELECT * "
+            "FROM rental " 
+            "WHERE staff_id = 2")
+    cursor.execute(query)
+    row_headers=[x[0] for x in cursor.description] #this will extract row headers
+    myresult = cursor.fetchall()
+    json_data=[]
+    for result in myresult:
+        json_data.append(dict(zip(row_headers,result)))
+
+    pdf = FPDF()
+    pdf.add_page()
+    page_width = pdf.w - 2 * pdf.l_margin
+         
+    pdf.set_font('Times','B',14.0) 
+    pdf.cell(page_width, 0.0, 'Store 2 Rentals', align='C')
+    pdf.ln(10)
+
+    pdf.set_font('Courier', '', 12)
+    text_height = 0.17
+        
+    col_width = page_width/4
+        
+    pdf.ln(1)
+        
+    th = pdf.font_size
+    
+    pdf.cell(col_width/2+5, th, "Rental ID", border=1)
+    pdf.cell(col_width+10, th, "Rental Date", border=1)
+    pdf.cell(col_width, th, "Inventory ID", border=1)
+    pdf.cell(col_width, th, "Customer ID", border=1)
+    pdf.ln(th)
+
+    pageNum=pdf.page_no()
+
+    for row in json_data:
+        pdf.cell(col_width/2+5, th, str(row['rental_id']), border=1)
+        pdf.cell(col_width+10, th, str(row['rental_date']), border=1)
+        pdf.cell(col_width, th, str(row['inventory_id']), border=1)
+        pdf.cell(col_width, th, str(row['customer_id']), border=1)
+        pdf.ln(th)
+        
+    pdf.ln(10)
+        
+    pdf.set_font('Times','',10.0) 
+    pdf.cell(page_width, 0.0, '- end of report -', align='C')
+        
+    return Response(pdf.output(dest='S').encode('latin-1'), mimetype='application/pdf', headers={'Content-Disposition':'attachment;filename=store2_rentals.pdf'})
+
+    
+
+
 
 
 
