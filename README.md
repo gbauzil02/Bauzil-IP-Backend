@@ -41,8 +41,11 @@ ____________________________________________________________
 Installations (Good for Linux, MacOS, and Windows):
 
 pip install fpdf
+
 pip install Flask-Cors
+
 pip install mysql-connector-python
+
 pip install requests
 
 
