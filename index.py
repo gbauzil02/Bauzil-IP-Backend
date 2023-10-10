@@ -254,6 +254,58 @@ def getId():
     json_data=[]
     for result in myresult:
         json_data.append(dict(zip(row_headers,result)))
+    
+    cursor = cnx.cursor()
+    query = ("SELECT film.title as returned "
+            "FROM film "
+            "JOIN( "
+                "SELECT rental.customer_id, inventory.film_id "
+                "FROM rental "
+                "JOIN inventory "
+                "ON inventory.inventory_id = rental.inventory_id "
+                "WHERE rental.customer_id = %s AND return_date IS NOT NULL) AS R2 "
+            "WHERE film.film_id = R2.film_id") 
+    cursor.execute(query, (int(received_data["data"]),))
+    row_headers=[x[0] for x in cursor.description] #this will extract row headers
+    myresult = cursor.fetchall()
+    json_data2=[]
+    for result in myresult:
+        json_data2.append(dict(zip(row_headers,result)))
+    print(json_data2)
+
+    test = {}
+    test['returned'] = json_data2
+    json_data.append(test)
+    print()
+
+    cursor = cnx.cursor()
+    query = ("SELECT film.title as not_returned "
+            "FROM film "
+            "JOIN( "
+                "SELECT rental.customer_id, inventory.film_id "
+                "FROM rental "
+                "JOIN inventory "
+                "ON inventory.inventory_id = rental.inventory_id "
+                "WHERE rental.customer_id = %s AND return_date IS NULL) AS R2 "
+            "WHERE film.film_id = R2.film_id") 
+    cursor.execute(query, (int(received_data["data"]),))
+    row_headers=[x[0] for x in cursor.description] #this will extract row headers
+    myresult = cursor.fetchall()
+    json_data3=[]
+    for result in myresult:
+        json_data3.append(dict(zip(row_headers,result)))
+    print(json_data3)
+
+    test = {}
+    test['not_returned'] = json_data3
+    json_data.append(test)
+    print(json_data[0])
+    print()
+    print(json_data[1])
+    print()
+    print(json_data[2])
+
+
     encoder = MultipleJsonEncoders(DecimalEncoder, SetEncoder)
     return flask.Response(response=json.dumps(json_data, cls=encoder), status=201)
 
@@ -791,10 +843,3 @@ def rentPDF2():
     pdf.cell(page_width, 0.0, '- end of report -', align='C')
         
     return Response(pdf.output(dest='S').encode('latin-1'), mimetype='application/pdf', headers={'Content-Disposition':'attachment;filename=store2_rentals.pdf'})
-
-    
-
-
-
-
-
