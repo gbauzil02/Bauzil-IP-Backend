@@ -750,7 +750,7 @@ def editCust():
         query = ("SELECT address_id "
                 "FROM Customer "
                 "WHERE customer_id = %s")
-        cursor.execute(query, (received_data["customer_id"]))
+        cursor.execute(query, (received_data["customer_id"],))
         row_headers=[x[0] for x in cursor.description] #this will extract row headers
         myresult = cursor.fetchall()
         json_data=[]
@@ -1002,119 +1002,212 @@ def editCust():
                 cursor.execute(query, (city_id, addr_id))
                 cnx.commit()
 
-    if received_data["country"] != "":
-        cursor = cnx.cursor()
-        query = ("SELECT address_id "
-                "FROM Customer "
-                "WHERE customer_id = %s")
-        cursor.execute(query, (int(received_data["customer_id"]),))
-        row_headers=[x[0] for x in cursor.description] #this will extract row headers
-        myresult = cursor.fetchall()
-        json_data=[]
-        for result in myresult:
-            json_data.append(dict(zip(row_headers,result)))
-        addr_id = int(json_data[0]["address_id"])
-
-        cursor = cnx.cursor()
-        query = ("SELECT * "
-                "FROM address "
-                "WHERE address_id = %s ") 
-        cursor.execute(query, (addr_id,))
-        row_headers=[x[0] for x in cursor.description] #this will extract row headers
-        myresult = cursor.fetchall()
-        json_data=[]
-        for result in myresult:
-            json_data.append(dict(zip(row_headers,result)))
-        city_id = str(json_data[0]["city_id"])
-        
-        
-
-
-        cursor = cnx.cursor()
-        query = ("SELECT * "
-                "FROM city "
-                "WHERE city_id = %s ") 
-        cursor.execute(query, (city_id,))
-        row_headers=[x[0] for x in cursor.description] #this will extract row headers
-        myresult = cursor.fetchall()
-        json_data=[]
-        for result in myresult:
-            json_data.append(dict(zip(row_headers,result)))
-        old_country_id = str(json_data[0]["country_id"])
-        city = str(json_data[0]["city"])
-
-
-        cursor = cnx.cursor()
-        query = ("SELECT country_id "
-                "FROM country "
-                "WHERE country = %s ") 
-        cursor.execute(query, (received_data["country"],))
-        row_headers=[x[0] for x in cursor.description] #this will extract row headers
-        myresult = cursor.fetchall()
-        
-        if myresult == []:
+    if received_data["city"] == "":
+        if received_data["country"] != "" :
             cursor = cnx.cursor()
-            query = ("SELECT MAX(country_id) as country_id "
-                    "FROM country;")
-            cursor.execute(query)
+            query = ("SELECT address_id "
+                    "FROM Customer "
+                    "WHERE customer_id = %s")
+            cursor.execute(query, (int(received_data["customer_id"]),))
             row_headers=[x[0] for x in cursor.description] #this will extract row headers
             myresult = cursor.fetchall()
             json_data=[]
             for result in myresult:
                 json_data.append(dict(zip(row_headers,result)))
-            new_id = str(int(json_data[0]["country_id"]) + 1)
+            addr_id = int(json_data[0]["address_id"])
 
             cursor = cnx.cursor()
-            query = ("INSERT INTO country(country_id, country) VALUES (%s, %s);")
-            cursor.execute(query, (new_id, received_data["country"].title(),))
-            cnx.commit()
-            country_id = new_id
-
-            #insert old city with new country
-            cursor = cnx.cursor()
-            query = ("INSERT INTO city(city_id, city, country_id) VALUES (%s, %s, %s);")
-            cursor.execute(query, (city_id, city,old_country_id,))
-            cnx.commit()
-
-            #update address
-            cursor = cnx.cursor()
-            query = ("UPDATE address "
-                    "SET city_id = %s "
+            query = ("SELECT * "
+                    "FROM address "
                     "WHERE address_id = %s ") 
-            cursor.execute(query, (city_id, addr_id))
-            cnx.commit()
-        else:
+            cursor.execute(query, (addr_id,))
+            row_headers=[x[0] for x in cursor.description] #this will extract row headers
+            myresult = cursor.fetchall()
             json_data=[]
             for result in myresult:
                 json_data.append(dict(zip(row_headers,result)))
-            country_id = str(json_data[0]["country_id"])
+            city_id = str(json_data[0]["city_id"])
+            print(city_id)
+            
+            
 
-            if old_country_id == country_id:
+
+            cursor = cnx.cursor()
+            query = ("SELECT * "
+                    "FROM city "
+                    "WHERE city_id = %s ") 
+            cursor.execute(query, (city_id,))
+            row_headers=[x[0] for x in cursor.description] #this will extract row headers
+            myresult = cursor.fetchall()
+            json_data=[]
+            for result in myresult:
+                json_data.append(dict(zip(row_headers,result)))
+            old_country_id = str(json_data[0]["country_id"])
+            city = str(json_data[0]["city"])
+            print(old_country_id)
+            print(city)
+
+
+            cursor = cnx.cursor()
+            query = ("SELECT country_id "
+                    "FROM country "
+                    "WHERE country = %s ") 
+            cursor.execute(query, (received_data["country"],))
+            row_headers=[x[0] for x in cursor.description] #this will extract row headers
+            myresult = cursor.fetchall()
+            
+            
+            if myresult == []:
                 cursor = cnx.cursor()
-                query = ("SELECT city_id "
-                        "FROM city "
-                        "WHERE country_id = %s ") 
-                cursor.execute(query, (country_id,))
+                query = ("SELECT MAX(country_id) as country_id "
+                        "FROM country;")
+                cursor.execute(query)
                 row_headers=[x[0] for x in cursor.description] #this will extract row headers
                 myresult = cursor.fetchall()
                 json_data=[]
                 for result in myresult:
                     json_data.append(dict(zip(row_headers,result)))
-                
-                for i in json_data:
-                    if i["city"] == city:
+                new_id = str(int(json_data[0]["country_id"]) + 1)
+
+                cursor = cnx.cursor()
+                query = ("INSERT INTO country(country_id, country) VALUES (%s, %s);")
+                cursor.execute(query, (new_id, received_data["country"].title(),))
+                cnx.commit()
+                country_id = new_id
+
+                #insert old city with new country
+                cursor = cnx.cursor()
+                query = ("INSERT INTO city(city_id, city, country_id) VALUES (%s, %s, %s);")
+                cursor.execute(query, (city_id, city, country_id,))
+                cnx.commit()
+
+                #update address
+                cursor = cnx.cursor()
+                query = ("UPDATE address "
+                        "SET city_id = %s "
+                        "WHERE address_id = %s ") 
+                cursor.execute(query, (city_id, addr_id))
+                cnx.commit()
+            else:
+                json_data=[]
+                for result in myresult:
+                    json_data.append(dict(zip(row_headers,result)))
+                country_id = str(json_data[0]["country_id"])
+                print(country_id)
+
+                if old_country_id == country_id:
+                    cursor = cnx.cursor()
+                    query = ("SELECT city_id "
+                            "FROM city "
+                            "WHERE country_id = %s ") 
+                    cursor.execute(query, (country_id,))
+                    row_headers=[x[0] for x in cursor.description] #this will extract row headers
+                    myresult = cursor.fetchall()
+                    json_data=[]
+                    for result in myresult:
+                        json_data.append(dict(zip(row_headers,result)))
+                    good = False
+                    for i in json_data:
+                        if i["city"] == city:
+                            good = True
+                            #update address
+                            cursor = cnx.cursor()
+                            query = ("UPDATE address "
+                                    "SET city_id = %s "
+                                    "WHERE address_id = %s ") 
+                            cursor.execute(query, (i['city_id'], addr_id))
+                            cnx.commit()
+                            break
+                        
+                    if not good:
+                        cursor = cnx.cursor()
+                        query = ("SELECT MAX(city_id) as city_id "
+                                "FROM city;")
+                        cursor.execute(query)
+                        row_headers=[x[0] for x in cursor.description] #this will extract row headers
+                        myresult = cursor.fetchall()
+                        json_data=[]
+                        for result in myresult:
+                            json_data.append(dict(zip(row_headers,result)))
+                        new_city_id = str(int(json_data[0]["city_id"]) + 1)
+
+                        cursor = cnx.cursor()
+                        query = ("INSERT INTO city(city_id, city, country_id) VALUES (%s, %s, %s);")
+                        cursor.execute(query, (new_city_id, city, country_id,))
+                        cnx.commit()
+
+                        cursor = cnx.cursor()
+                        query = ("UPDATE address "
+                                "SET city_id = %s "
+                                "WHERE address_id = %s ") 
+                        cursor.execute(query, (city_id, addr_id))
+                        cnx.commit()
+                else:
+                    cursor = cnx.cursor()
+                    query = ("SELECT * "
+                            "FROM city "
+                            "WHERE country_id = %s AND city = %s")
+                    cursor.execute(query, (country_id, city))
+                    row_headers=[x[0] for x in cursor.description] #this will extract row headers
+                    myresult = cursor.fetchall()
+
+                    if myresult == []:
+                        cursor = cnx.cursor()
+                        query = ("SELECT MAX(city_id) as city_id "
+                                "FROM city;")
+                        cursor.execute(query)
+                        row_headers=[x[0] for x in cursor.description] #this will extract row headers
+                        myresult = cursor.fetchall()
+                        json_data=[]
+                        for result in myresult:
+                            json_data.append(dict(zip(row_headers,result)))
+                        new_id = str(int(json_data[0]["city_id"]) + 1)
+
+
+                        #insert old city with old country
+                        cursor = cnx.cursor()
+                        query = ("INSERT INTO city(city_id, city, country_id) VALUES (%s, %s, %s);")
+                        cursor.execute(query, (new_id, city, country_id,))
+                        cnx.commit()
+
                         #update address
                         cursor = cnx.cursor()
                         query = ("UPDATE address "
                                 "SET city_id = %s "
                                 "WHERE address_id = %s ") 
-                        cursor.execute(query, (i['city_id'], addr_id))
-            else:
-                #insert old city with old country
-                cursor = cnx.cursor()
-                query = ("INSERT INTO city(city_id, city, country_id) VALUES (%s, %s, %s);")
-                cursor.execute(query, (city_id, city, country_id,))
-                cnx.commit()
+                        cursor.execute(query, (new_id, addr_id))
+                        cnx.commit()
+                    
+                    else:
+                        print("City: ", end="")
+                        print(city)
+                        print("Country_id: ", end="")
+                        print(country_id)
+                        print("City_id: ", end="")
+                        print(city_id)
+                        print("Random")
+                        json_data=[]
+                        for result in myresult:
+                            json_data.append(dict(zip(row_headers,result)))
+                        print("Search Results: ", end="")
+                        print(json_data)
+                        new_id = str(int(json_data[0]["city_id"]))
+                        print("New Id: ", end="")
+                        print(new_id)
+
+                        #update address
+                        cursor = cnx.cursor()
+                        query = ("UPDATE address "
+                                "SET city_id = %s "
+                                "WHERE address_id = %s ") 
+                        cursor.execute(query, (new_id, addr_id))
+                        cnx.commit()
+
+
+
+                
+
+
     return ('', 204)
     
 
