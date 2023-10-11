@@ -6,9 +6,16 @@ from flask_cors import CORS
 import mysql.connector
 import decimal
 from fpdf import FPDF
+import sentry_sdk
+from sentry_sdk.integrations.flask import FlaskIntegration
+import re
+from flask import jsonify 
 
 app = Flask(__name__)
 CORS(app)
+class APIError(Exception):
+    """All custom API Exceptions"""
+    pass
 
 class DecimalEncoder(json.JSONEncoder):
     def default(self, o):
@@ -228,7 +235,7 @@ def getId():
                               host='127.0.0.1',
                               database='sakila')
     cursor = cnx.cursor()
-    query = ("SELECT c2.customer_id, c2.store_id, c2.first_name, c2.last_name, c2.email, c2.address, c2.district, c2.postal_code, c2.phone, c2.city, c2.country, r.count "
+    query = ("SELECT c2.customer_id, c2.store_id, c2.first_name, c2.last_name, c2.email, c2.address, c2.district, c2.postal_code, c2.phone, c2.city, c2.country "
             "FROM( "
                 "SELECT c.customer_id, c.store_id, c.first_name, c.last_name, c.email, addr.address, addr.district, addr.postal_code, addr.phone,addr.city, addr.country "
                 "FROM Customer as c "
@@ -240,12 +247,6 @@ def getId():
                         "ON city.country_id = country.country_id) as c "
                     "ON c.city_id = a.city_id) as addr "
                 "ON c.address_id = addr.address_id) as c2 "
-            "JOIN(SELECT customer.customer_id, customer.first_name, customer.last_name, COUNT(*) as count "
-                "FROM rental "
-                "JOIN customer "
-                "ON rental.customer_id = customer.customer_id "
-                "GROUP BY customer.customer_id, customer.first_name, customer.last_name) as r "
-            "ON r.customer_id = c2. customer_id "
             "WHERE c2.customer_id = %s;") 
     cursor.execute(query, (int(received_data["data"]),))
     print(f"received data: {received_data}")
@@ -299,11 +300,8 @@ def getId():
     test = {}
     test['not_returned'] = json_data3
     json_data.append(test)
-    print(json_data[0])
-    print()
-    print(json_data[1])
-    print()
-    print(json_data[2])
+
+    print(json_data)
 
 
     encoder = MultipleJsonEncoders(DecimalEncoder, SetEncoder)
@@ -419,11 +417,53 @@ def topActFilms():
     encoder = MultipleJsonEncoders(DecimalEncoder, SetEncoder)
     return flask.Response(response=json.dumps(json_data, cls=encoder), status=201)
 
-# NOT COMPLETE - Adding customer after filling out form
-@app.route('/addCust', methods=["POST"])
-def addCust():
-    received_data = request.get_json()
+class APIAuthError(Exception):
+  code = 403
+  description = "Authentication Error"
 
+@app.errorhandler(APIError)
+def handle_exception(err):
+    """Return custom JSON when APIError or its children are raised"""
+    response = {"error": err.description, "message": ""}
+    if len(err.args) > 0:
+        response["message"] = err.args[0]
+    # Add some logging so that we can monitor different types of errors 
+    app.logger.error(f'{err.description}: {response["message"]}')
+    print(jsonify(response))
+    return jsonify(response), err.code
+
+# NOT COMPLETE - Adding customer after filling out form
+@app.route('/addCust', methods=["GET","POST"])
+def addCust():
+    valid_stores = [1,2]
+    received_data = request.get_json()
+    print(f"received data: {received_data}")
+    if not received_data["store"].isdigit():
+        return ('', 600)
+
+    print(int(received_data["store"]) == 2)
+    if int(received_data["store"]) != 1:
+        if int(received_data["store"]) != 2:
+        # resp = ['{"message": "Please pick a valid store"}']
+        # print(resp)
+        # return flask.Response(response=json.dumps(resp), status=205)
+            return ('', 600)
+        # raise APIAuthError("Please pick a valid store")
+    print(2)
+    if not re.search(".*@.*\..*", received_data["email"]):
+    # if "@" not in received_data["email"] and "." :
+        # resp = [{'message': 'Please give a valid email'}]
+        # encoder = MultipleJsonEncoders(DecimalEncoder, SetEncoder)
+        # return flask.Response(response=json.dumps(resp, cls=encoder), status=205)
+        return ('', 601)
+    print(3)
+    x = received_data["address"].split(' ')
+    if not x[0].isdigit():
+        # resp = [{'message': 'Please give a valid address'}]
+        # encoder = MultipleJsonEncoders(DecimalEncoder, SetEncoder)
+        # return flask.Response(response=json.dumps(resp, cls=encoder), status=205)
+        return ('', 602)
+    print(4)
     cnx = mysql.connector.connect(user='root', password='password',
                               host='127.0.0.1',
                               database='sakila')
@@ -497,7 +537,7 @@ def addCust():
         for result in myresult:
             json_data.append(dict(zip(row_headers,result)))
         city_id = json_data[0]["city_id"]
-    
+    print(5)
     cursor = cnx.cursor()
     query = ("SELECT MAX(address_id) as address_id "
             "FROM address;")
@@ -508,13 +548,13 @@ def addCust():
     for result in myresult:
         json_data.append(dict(zip(row_headers,result)))
     address_id = str(int(json_data[0]["address_id"]) + 1)
-    
+    print(6)
     cursor = cnx.cursor()
     query = ("INSERT INTO address(address_id, address, district, city_id, postal_code, phone, location) "
             "VALUES (%s, %s, %s, %s, %s, %s, POINT(0,0));")
     cursor.execute(query, (address_id, received_data["address"].title(), received_data["district"].title(),city_id, received_data["postal"], received_data["phone"],))
     cnx.commit()
-
+    print(8)
     cursor = cnx.cursor()
     query = ("SELECT MAX(customer_id) as customer_id "
             "FROM customer;")
@@ -525,14 +565,14 @@ def addCust():
     for result in myresult:
         json_data.append(dict(zip(row_headers,result)))
     customer_id = str(int(json_data[0]["customer_id"]) + 1)
-
+    print(9)
     cursor = cnx.cursor()
     query = ("INSERT INTO customer(customer_id, store_id, first_name, last_name, email, address_id, active) "
             "VALUES (%s, %s, %s, %s, %s, %s, 1);")
     cursor.execute(query, (customer_id, received_data["store"], received_data["first"].upper(), received_data["last"].upper(), received_data["email"], address_id,))
     cnx.commit()
 
-    return ('', 204)
+    return (customer_id, 204)
 
 #testing adding a customer
 @app.route('/test', methods=["GET"])
@@ -729,7 +769,22 @@ class FPDF(FPDF):
         self.set_font('Times','',12.0) 
         self.cell(0, 10, str(pageNum), align="C")
     
-
+@app.route('/getMax', methods=["GET"])
+def getMax():
+    cnx = mysql.connector.connect(user='root', password='password',
+                              host='127.0.0.1',
+                              database='sakila')
+    cursor = cnx.cursor()
+    query = ("SELECT MAX(customer_id) as customer_id "
+            "FROM customer;")
+    cursor.execute(query)
+    row_headers=[x[0] for x in cursor.description] #this will extract row headers
+    myresult = cursor.fetchall()
+    json_data=[]
+    for result in myresult:
+        json_data.append(dict(zip(row_headers,result)))
+    customer_id = str(int(json_data[0]["customer_id"]))
+    return customer_id
 
 
 # Getting a pdf of all rentals
