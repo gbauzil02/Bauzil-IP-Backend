@@ -37,8 +37,26 @@ To execute the Python file run the command:
 
 flask run 
 
+____________________________________________________________
+
+Installations (Good for Linux, MacOS, and Windows):
+
+pip install fpdf
+
+pip install Flask-Cors
+
+pip install mysql-connector-python
+
+pip install requests
+
+
+
 
 
 Sources and more information:
 
 https://www.geeksforgeeks.org/flask-rendering-templates/
+https://www.geeksforgeeks.org/how-to-install-flask-cors-in-python/
+https://dev.mysql.com/doc/connector-python/en/connector-python-installation-binary.html
+https://www.activestate.com/resources/quick-reads/how-to-pip-install-requests-python-package/
+
