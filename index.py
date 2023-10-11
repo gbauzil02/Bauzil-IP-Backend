@@ -6,16 +6,11 @@ from flask_cors import CORS
 import mysql.connector
 import decimal
 from fpdf import FPDF
-import sentry_sdk
-from sentry_sdk.integrations.flask import FlaskIntegration
 import re
 from flask import jsonify 
 
 app = Flask(__name__)
 CORS(app)
-class APIError(Exception):
-    """All custom API Exceptions"""
-    pass
 
 class DecimalEncoder(json.JSONEncoder):
     def default(self, o):
@@ -135,7 +130,6 @@ def getName():
             "ON category.category_id = f.category_id "
             "WHERE f.title = %s;")
     cursor.execute(query,(received_data["data"],))
-    print(f"received data: {received_data}")
     row_headers=[x[0] for x in cursor.description] #this will extract row headers
     myresult = cursor.fetchall()
     json_data=[]
@@ -163,7 +157,6 @@ def genre():
             "WHERE category.name = %s " 
             "LIMIT 1000;")
     cursor.execute(query,(received_data["data"],))
-    print(f"received data: {received_data}")
     row_headers=[x[0] for x in cursor.description] #this will extract row headers
     myresult = cursor.fetchall()
     json_data=[]
@@ -199,7 +192,6 @@ def byActor():
     "WHERE faf3.first_name = %s AND faf3.last_name = %s;")
     data = received_data["data"].split(' ')
     cursor.execute(query,(data[0],data[1]))
-    print(f"received data: {received_data}")
     row_headers=[x[0] for x in cursor.description] #this will extract row headers
     myresult = cursor.fetchall()
     json_data=[]
@@ -249,7 +241,6 @@ def getId():
                 "ON c.address_id = addr.address_id) as c2 "
             "WHERE c2.customer_id = %s;") 
     cursor.execute(query, (int(received_data["data"]),))
-    print(f"received data: {received_data}")
     row_headers=[x[0] for x in cursor.description] #this will extract row headers
     myresult = cursor.fetchall()
     json_data=[]
@@ -272,12 +263,10 @@ def getId():
     json_data2=[]
     for result in myresult:
         json_data2.append(dict(zip(row_headers,result)))
-    print(json_data2)
 
     test = {}
     test['returned'] = json_data2
     json_data.append(test)
-    print()
 
     cursor = cnx.cursor()
     query = ("SELECT film.title as not_returned "
@@ -295,13 +284,11 @@ def getId():
     json_data3=[]
     for result in myresult:
         json_data3.append(dict(zip(row_headers,result)))
-    print(json_data3)
 
     test = {}
     test['not_returned'] = json_data3
     json_data.append(test)
 
-    print(json_data)
 
 
     encoder = MultipleJsonEncoders(DecimalEncoder, SetEncoder)
@@ -319,13 +306,11 @@ def custById():
             "FROM customer " 
             "WHERE customer_id = %s")
     cursor.execute(query, (int(received_data["data"]),))
-    print(f"received data: {received_data}")
     row_headers=[x[0] for x in cursor.description] #this will extract row headers
     myresult = cursor.fetchall()
     json_data=[]
     for result in myresult:
         json_data.append(dict(zip(row_headers,result)))
-    print(json_data)
     encoder = MultipleJsonEncoders(DecimalEncoder, SetEncoder)
     return flask.Response(response=json.dumps(json_data, cls=encoder), status=201)
 
@@ -341,13 +326,11 @@ def custByFirst():
             "FROM customer " 
             "WHERE first_name = %s")
     cursor.execute(query, (received_data["data"],))
-    print(f"received data: {received_data}")
     row_headers=[x[0] for x in cursor.description] #this will extract row headers
     myresult = cursor.fetchall()
     json_data=[]
     for result in myresult:
         json_data.append(dict(zip(row_headers,result)))
-    print(json_data)
     encoder = MultipleJsonEncoders(DecimalEncoder, SetEncoder)
     return flask.Response(response=json.dumps(json_data, cls=encoder), status=201)
 
@@ -363,13 +346,11 @@ def custByLast():
             "FROM customer " 
             "WHERE last_name = %s")
     cursor.execute(query, (received_data["data"],))
-    print(f"received data: {received_data}")
     row_headers=[x[0] for x in cursor.description] #this will extract row headers
     myresult = cursor.fetchall()
     json_data=[]
     for result in myresult:
         json_data.append(dict(zip(row_headers,result)))
-    print(json_data)
     encoder = MultipleJsonEncoders(DecimalEncoder, SetEncoder)
     return flask.Response(response=json.dumps(json_data, cls=encoder), status=201)
 
@@ -408,7 +389,6 @@ def topActFilms():
             "LIMIT 5;")
     data = received_data["data"].split(' ')
     cursor.execute(query,(data[0],data[1]))
-    print(f"received data: {received_data}")
     row_headers=[x[0] for x in cursor.description] #this will extract row headers
     myresult = cursor.fetchall()
     json_data=[]
@@ -417,65 +397,31 @@ def topActFilms():
     encoder = MultipleJsonEncoders(DecimalEncoder, SetEncoder)
     return flask.Response(response=json.dumps(json_data, cls=encoder), status=201)
 
-class APIAuthError(Exception):
-  code = 403
-  description = "Authentication Error"
-
-@app.errorhandler(APIError)
-def handle_exception(err):
-    """Return custom JSON when APIError or its children are raised"""
-    response = {"error": err.description, "message": ""}
-    if len(err.args) > 0:
-        response["message"] = err.args[0]
-    # Add some logging so that we can monitor different types of errors 
-    app.logger.error(f'{err.description}: {response["message"]}')
-    print(jsonify(response))
-    return jsonify(response), err.code
-
-# NOT COMPLETE - Adding customer after filling out form
+# Adding customer after filling out form
 @app.route('/addCust', methods=["GET","POST"])
 def addCust():
     valid_stores = [1,2]
     received_data = request.get_json()
-    print(f"received data: {received_data}")
     if not received_data["store"].isdigit():
         return ('', 600)
 
-    print(int(received_data["store"]) == 2)
     if int(received_data["store"]) != 1:
         if int(received_data["store"]) != 2:
-        # resp = ['{"message": "Please pick a valid store"}']
-        # print(resp)
-        # return flask.Response(response=json.dumps(resp), status=205)
             return ('', 600)
-        # raise APIAuthError("Please pick a valid store")
-    print(2)
+
     if not re.search(".*@.*\..*", received_data["email"]):
-    # if "@" not in received_data["email"] and "." :
-        # resp = [{'message': 'Please give a valid email'}]
-        # encoder = MultipleJsonEncoders(DecimalEncoder, SetEncoder)
-        # return flask.Response(response=json.dumps(resp, cls=encoder), status=205)
         return ('', 601)
-    print(3)
+
     x = received_data["address"].split(' ')
     if not x[0].isdigit():
-        # resp = [{'message': 'Please give a valid address'}]
-        # encoder = MultipleJsonEncoders(DecimalEncoder, SetEncoder)
-        # return flask.Response(response=json.dumps(resp, cls=encoder), status=205)
         return ('', 602)
     
     if not received_data["postal"].isdigit():
-        # resp = [{'message': 'Please give a valid address'}]
-        # encoder = MultipleJsonEncoders(DecimalEncoder, SetEncoder)
-        # return flask.Response(response=json.dumps(resp, cls=encoder), status=205)
         return ('', 604)
     
     if not received_data["phone"].isdigit():
-        # resp = [{'message': 'Please give a valid address'}]
-        # encoder = MultipleJsonEncoders(DecimalEncoder, SetEncoder)
-        # return flask.Response(response=json.dumps(resp, cls=encoder), status=205)
         return ('', 605)
-    print(4)
+
     cnx = mysql.connector.connect(user='root', password='password',
                               host='127.0.0.1',
                               database='sakila')
@@ -549,7 +495,7 @@ def addCust():
         for result in myresult:
             json_data.append(dict(zip(row_headers,result)))
         city_id = json_data[0]["city_id"]
-    print(5)
+
     cursor = cnx.cursor()
     query = ("SELECT MAX(address_id) as address_id "
             "FROM address;")
@@ -560,13 +506,13 @@ def addCust():
     for result in myresult:
         json_data.append(dict(zip(row_headers,result)))
     address_id = str(int(json_data[0]["address_id"]) + 1)
-    print(6)
+
     cursor = cnx.cursor()
     query = ("INSERT INTO address(address_id, address, district, city_id, postal_code, phone, location) "
             "VALUES (%s, %s, %s, %s, %s, %s, POINT(0,0));")
     cursor.execute(query, (address_id, received_data["address"].title(), received_data["district"].title(),city_id, received_data["postal"], received_data["phone"],))
     cnx.commit()
-    print(8)
+
     cursor = cnx.cursor()
     query = ("SELECT MAX(customer_id) as customer_id "
             "FROM customer;")
@@ -577,7 +523,7 @@ def addCust():
     for result in myresult:
         json_data.append(dict(zip(row_headers,result)))
     customer_id = str(int(json_data[0]["customer_id"]) + 1)
-    print(9)
+
     cursor = cnx.cursor()
     query = ("INSERT INTO customer(customer_id, store_id, first_name, last_name, email, address_id, active) "
             "VALUES (%s, %s, %s, %s, %s, %s, 1);")
@@ -586,44 +532,10 @@ def addCust():
 
     return ('', 204)
 
-
-#testing adding a customer
-@app.route('/test', methods=["GET"])
-def test():
-    print("1")
-    cnx = mysql.connector.connect(user='root', password='password',
-                              host='127.0.0.1',
-                              database='sakila')
-    cursor = cnx.cursor()
-    query = ("SELECT MAX(customer_id) as customer_id "
-            "FROM customer;")
-    cursor.execute(query)
-    row_headers=[x[0] for x in cursor.description] #this will extract row headers
-    myresult = cursor.fetchall()
-    json_data=[]
-    for result in myresult:
-        json_data.append(dict(zip(row_headers,result)))
-    new_id = int(json_data[0]["customer_id"]) + 1
-    print(new_id)
-    print("2")
-
-    cursor = cnx.cursor()
-    query = ("SELECT MAX(address_id) as address_id "
-            "FROM customer;")
-    cursor.execute(query)
-    row_headers=[x[0] for x in cursor.description] #this will extract row headers
-    myresult = cursor.fetchall()
-    json_data=[]
-    for result in myresult:
-        json_data.append(dict(zip(row_headers,result)))
-    new_id = int(json_data[0]["address_id"]) + 1
-    print(new_id)
-    return json.dumps(json_data)
-
+#Edit customer information
 @app.route('/editCust', methods=["GET","POST"])
 def editCust():
     received_data = request.get_json()
-    print(f"received data: {received_data}")
 
     cnx = mysql.connector.connect(user='root', password='password',
                               host='127.0.0.1',
@@ -650,7 +562,6 @@ def editCust():
         if not received_data["store"].isdigit():
             return ('', 600)
 
-        print(int(received_data["store"]) == 2)
         if int(received_data["store"]) != 1:
             if int(received_data["store"]) != 2:
                 return ('', 600)
@@ -678,8 +589,6 @@ def editCust():
         cursor.execute(query, (received_data["last"].upper(),received_data["customer_id"]))
         cnx.commit()
         
-        
-    print(2)
     if received_data["email"] != "":
         if not re.search(".*@.*\..*", received_data["email"]):
             return ('', 601)
@@ -690,14 +599,9 @@ def editCust():
         cursor.execute(query, (received_data["email"],received_data["customer_id"]))
         cnx.commit()
 
-    print(3)
-
     if received_data["address"] != "":
         x = received_data["address"].split(' ')
         if not x[0].isdigit():
-            # resp = [{'message': 'Please give a valid address'}]
-            # encoder = MultipleJsonEncoders(DecimalEncoder, SetEncoder)
-            # return flask.Response(response=json.dumps(resp, cls=encoder), status=205)
             return ('', 602)
 
         cursor = cnx.cursor()
@@ -741,9 +645,6 @@ def editCust():
 
     if received_data["postal"] != "":
         if not received_data["postal"].isdigit():
-            # resp = [{'message': 'Please give a valid address'}]
-            # encoder = MultipleJsonEncoders(DecimalEncoder, SetEncoder)
-            # return flask.Response(response=json.dumps(resp, cls=encoder), status=205)
             return ('', 604)
 
         cursor = cnx.cursor()
@@ -767,9 +668,6 @@ def editCust():
     
     if received_data["phone"] != "":
         if not received_data["phone"].isdigit():
-            # resp = [{'message': 'Please give a valid address'}]
-            # encoder = MultipleJsonEncoders(DecimalEncoder, SetEncoder)
-            # return flask.Response(response=json.dumps(resp, cls=encoder), status=205)
             return ('', 605)
 
         cursor = cnx.cursor()
@@ -1027,10 +925,6 @@ def editCust():
             for result in myresult:
                 json_data.append(dict(zip(row_headers,result)))
             city_id = str(json_data[0]["city_id"])
-            print(city_id)
-            
-            
-
 
             cursor = cnx.cursor()
             query = ("SELECT * "
@@ -1044,9 +938,6 @@ def editCust():
                 json_data.append(dict(zip(row_headers,result)))
             old_country_id = str(json_data[0]["country_id"])
             city = str(json_data[0]["city"])
-            print(old_country_id)
-            print(city)
-
 
             cursor = cnx.cursor()
             query = ("SELECT country_id "
@@ -1093,7 +984,6 @@ def editCust():
                 for result in myresult:
                     json_data.append(dict(zip(row_headers,result)))
                 country_id = str(json_data[0]["country_id"])
-                print(country_id)
 
                 if old_country_id == country_id:
                     cursor = cnx.cursor()
@@ -1179,21 +1069,11 @@ def editCust():
                         cnx.commit()
                     
                     else:
-                        print("City: ", end="")
-                        print(city)
-                        print("Country_id: ", end="")
-                        print(country_id)
-                        print("City_id: ", end="")
-                        print(city_id)
-                        print("Random")
                         json_data=[]
                         for result in myresult:
                             json_data.append(dict(zip(row_headers,result)))
-                        print("Search Results: ", end="")
-                        print(json_data)
+
                         new_id = str(int(json_data[0]["city_id"]))
-                        print("New Id: ", end="")
-                        print(new_id)
 
                         #update address
                         cursor = cnx.cursor()
@@ -1210,28 +1090,45 @@ def editCust():
 
     return ('', 204)
     
-
+# Renting a Movie
 @app.route('/rentMovie', methods=["POST"])
 def rentMovie():
-    print("1")
     
     received_data = request.get_json()
-    print(received_data)
+
     cnx = mysql.connector.connect(user='root', password='password',
                               host='127.0.0.1',
                               database='sakila')
     cursor = cnx.cursor()
-    query = ("SELECT store_id "
-            "FROM customer " 
-            "WHERE customer_id = %s")
-    cursor.execute(query, (received_data["customer_id"],))
-    print(f"received data: {received_data}")
+    query = ("SELECT MAX(customer_id) as customer_id "
+            "FROM customer")
+    cursor.execute(query)
     row_headers=[x[0] for x in cursor.description] #this will extract row headers
     myresult = cursor.fetchall()
     json_data=[]
     for result in myresult:
         json_data.append(dict(zip(row_headers,result)))
-    print(json_data[0]["store_id"])
+
+    max_id = int(json_data[0]["customer_id"])
+
+    if not received_data["customer_id"].isdigit():
+        return ('', 606)
+    if int(received_data["customer_id"]) > max_id:
+        return ('', 606)
+    if int(received_data["customer_id"]) < 0:
+        return ('', 606)
+
+
+    cursor = cnx.cursor()
+    query = ("SELECT store_id "
+            "FROM customer " 
+            "WHERE customer_id = %s")
+    cursor.execute(query, (received_data["customer_id"],))
+    row_headers=[x[0] for x in cursor.description] #this will extract row headers
+    myresult = cursor.fetchall()
+    json_data=[]
+    for result in myresult:
+        json_data.append(dict(zip(row_headers,result)))
     
     store_id = json_data[0]["store_id"]
 
@@ -1245,7 +1142,6 @@ def rentMovie():
     json_data=[]
     for result in myresult:
         json_data.append(dict(zip(row_headers,result)))
-    print(json_data[0]["film_id"])
 
     film_id = json_data[0]["film_id"]
     
@@ -1303,27 +1199,42 @@ def rentMovie():
 
     return ('', 204)
 
+#Delete user from database
 @app.route('/deleteUser', methods=["POST"])
 def deleteUser():
-    print("1")
     
     received_data = request.get_json()
-    print(received_data)
     cnx = mysql.connector.connect(user='root', password='password',
                               host='127.0.0.1',
                               database='sakila')
     cursor = cnx.cursor()
-    query = ("SELECT address_id "
-            "FROM customer " 
-            "WHERE customer_id = %s")
-    cursor.execute(query, (received_data["customer_id"],))
-    print(f"received data: {received_data}")
+    query = ("SELECT MAX(customer_id) as customer_id "
+            "FROM customer")
+    cursor.execute(query)
     row_headers=[x[0] for x in cursor.description] #this will extract row headers
     myresult = cursor.fetchall()
     json_data=[]
     for result in myresult:
         json_data.append(dict(zip(row_headers,result)))
-    print(json_data)
+
+    max_id = int(json_data[0]["customer_id"])
+    if not received_data["customer_id"].isdigit():
+        return ('', 607)
+    if int(received_data["customer_id"]) > max_id:
+        return ('', 607)
+    if int(received_data["customer_id"]) < 0:
+        return ('', 607)
+
+    cursor = cnx.cursor()
+    query = ("SELECT address_id "
+            "FROM customer " 
+            "WHERE customer_id = %s")
+    cursor.execute(query, (received_data["customer_id"],))
+    row_headers=[x[0] for x in cursor.description] #this will extract row headers
+    myresult = cursor.fetchall()
+    json_data=[]
+    for result in myresult:
+        json_data.append(dict(zip(row_headers,result)))
     addr_id = json_data[0]["address_id"]
 
     cursor = cnx.cursor()
@@ -1371,26 +1282,8 @@ class FPDF(FPDF):
         pageNum=self.page_no()
         self.set_font('Times','',12.0) 
         self.cell(0, 10, str(pageNum), align="C")
-    
-@app.route('/getMax', methods=["GET"])
-def getMax():
-    cnx = mysql.connector.connect(user='root', password='password',
-                              host='127.0.0.1',
-                              database='sakila')
-    cursor = cnx.cursor()
-    query = ("SELECT MAX(customer_id) as customer_id "
-            "FROM customer;")
-    cursor.execute(query)
-    row_headers=[x[0] for x in cursor.description] #this will extract row headers
-    myresult = cursor.fetchall()
-    json_data=[]
-    for result in myresult:
-        json_data.append(dict(zip(row_headers,result)))
-    customer_id = str(int(json_data[0]["customer_id"]))
-    return customer_id
 
-
-# Getting a pdf of all rentals
+# Getting a pdf of all rentals for store 1
 @app.route('/rentPDF1', methods=["GET"])
 def rentPDF1():
     cnx = mysql.connector.connect(user='root', password='password',
@@ -1446,7 +1339,7 @@ def rentPDF1():
         
     return Response(pdf.output(dest='S').encode('latin-1'), mimetype='application/pdf', headers={'Content-Disposition':'attachment;filename=store1_rentals.pdf'})
 
-    
+# Getting a pdf of all rentals for store 2  
 @app.route('/rentPDF2', methods=["GET"])
 def rentPDF2():
     cnx = mysql.connector.connect(user='root', password='password',
@@ -1501,10 +1394,3 @@ def rentPDF2():
     pdf.cell(page_width, 0.0, '- end of report -', align='C')
         
     return Response(pdf.output(dest='S').encode('latin-1'), mimetype='application/pdf', headers={'Content-Disposition':'attachment;filename=store2_rentals.pdf'})
-
-    
-
-
-
-
-
