@@ -408,7 +408,7 @@ def addCust():
         if int(received_data["store"]) != 2:
             return ('', 600)
 
-    if not re.search(".*@.*\..*", received_data["email"]):
+    if not re.search(".*@.*\\..*", received_data["email"]):
         return ('', 601)
 
     x = received_data["address"].split(' ')
@@ -589,7 +589,7 @@ def editCust():
         cnx.commit()
         
     if received_data["email"] != "":
-        if not re.search(".*@.*\..*", received_data["email"]):
+        if not re.search(".*@.*\\..*", received_data["email"]):
             return ('', 601)
         cursor = cnx.cursor()
         query = ("UPDATE Customer "
@@ -1336,7 +1336,7 @@ def rentPDF1():
     pdf.set_font('Times','',10.0) 
     pdf.cell(page_width, 0.0, '- end of report -', align='C')
         
-    return Response(pdf.output(dest='S').encode('latin-1'), status=201, mimetype='application/pdf', headers={'Content-Disposition':'attachment;filename=store1_rentals.pdf'})
+    return Response(pdf.output(dest='S').encode('latin-1'), mimetype='application/pdf', headers={'Content-Disposition':'attachment;filename=store1_rentals.pdf'})
 
 # Getting a pdf of all rentals for store 2  
 @app.route('/rentPDF2', methods=["GET"])
@@ -1392,11 +1392,4 @@ def rentPDF2():
     pdf.set_font('Times','',10.0) 
     pdf.cell(page_width, 0.0, '- end of report -', align='C')
         
-    return Response(pdf.output(dest='S').encode('latin-1'), status=201, mimetype='application/pdf', headers={'Content-Disposition':'attachment;filename=store2_rentals.pdf'})
-
-    
-
-
-
-
-
+    return Response(pdf.output(dest='S').encode('latin-1'), mimetype='application/pdf', headers={'Content-Disposition':'attachment;filename=store2_rentals.pdf'})
