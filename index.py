@@ -1,5 +1,4 @@
 from flask import Flask, render_template, url_for, redirect, request, Response
-import requests
 import json
 import flask
 from flask_cors import CORS
@@ -1394,5 +1393,3 @@ def rentPDF2():
     pdf.cell(page_width, 0.0, '- end of report -', align='C')
         
     return Response(pdf.output(dest='S').encode('latin-1'), mimetype='application/pdf', headers={'Content-Disposition':'attachment;filename=store2_rentals.pdf'})
-
-    
