@@ -78,3 +78,132 @@ def test_getName():
     assert res[0]['film_id'] == 2
     assert response.status_code == 201
 
+def test_genre():
+    data = {
+        "data": "horror"
+    }
+    response = app.test_client().post('/genre', json=data)
+    
+    res = json.loads(response.data.decode('utf-8'))
+
+    for i in res:
+        assert i['genre'] == 'Horror'
+    assert response.status_code == 201
+
+def test_actor():
+    data = {
+        "data": "walter torn"
+    }
+    response = app.test_client().post('/byActor', json=data)
+    
+    res = json.loads(response.data.decode('utf-8'))
+
+    assert res[0]['title'] == 'AMELIE HELLFIGHTERS'
+
+
+    assert response.status_code == 201
+
+def test_getId():
+    data = {
+        "data": "10"
+    }
+    response = app.test_client().post('/getId', json=data)
+    
+    res = json.loads(response.data.decode('utf-8'))
+
+    assert res[0]['customer_id'] == 10
+
+
+    assert response.status_code == 201
+
+
+def test_custByFirst():
+    data = {
+        "data": "Mary"
+    }
+    response = app.test_client().post('/custByFirst', json=data)
+    
+    res = json.loads(response.data.decode('utf-8'))
+
+    assert res[0]['first_name'] == 'MARY'
+
+
+    assert response.status_code == 201
+
+def test_custByLast():
+    data = {
+        "data": "Johnson"
+    }
+    response = app.test_client().post('/custByLast', json=data)
+    
+    res = json.loads(response.data.decode('utf-8'))
+
+    assert res[0]['last_name'] == 'JOHNSON'
+
+
+    assert response.status_code == 201
+
+def test_addCust():
+    data = {
+        "store": "1",
+        "first": "Jane",
+        "last": "Doe",
+        "phone": "1234567890",
+        "email": "newemail@gmail.com",
+        "address": "1 New Street",
+        "district": "New District",
+        "city": "New City",
+        "country": "New Country",
+        "postal": "23456"
+        
+    }
+    response = app.test_client().post('/addCust', json=data)
+
+
+    assert response.status_code == 204
+
+def test_editCust():
+    data = {
+        "customer_id": "600",
+        "store": "",
+        "first": "",
+        "last": "C",
+        "phone": "1234567891",
+        "email": "newemail2@gmail.com",
+        "address": "",
+        "district": "",
+        "city": "",
+        "country": "",
+        "postal": ""
+        
+    }
+    response = app.test_client().post('/editCust', json=data)
+
+    assert response.status_code == 204
+
+def test_rentMovie():
+    data = {
+        "title": "ACE GOLDFINGER", # <-- film is not available at store 1
+        # "title": "ACADEMY DINOSAUR", <-- film is available at store 1
+        "customer_id": "600",
+        
+    }
+    response = app.test_client().post('/rentMovie', json=data)
+
+    assert response.status_code == 404 # <-- error code
+    #assert response.status_code == 204
+
+def test_deleteUser():
+    data = {
+        "customer_id": "600",
+        
+    }
+    response = app.test_client().post('/deleteUser', json=data)
+
+    assert response.status_code == 204
+
+def test_rentPDF1():
+    response = app.test_client().get('/rentPDF1')
+
+    assert response.status_code == 200
+
