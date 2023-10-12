@@ -33,9 +33,23 @@ Linux/MacOS: export FLASK_APP=index.py
 
 
 
-To execute the Python file run the command:
+To execute the Python file and launch the application run the command:
 
 flask run 
+
+
+Copy and paste the HTTP site that appears in the terminal into the search bar of your browser
+
+
+____________________________________________________________
+
+To run the pytest file:
+
+Install pytest (command in installation section below)
+
+On the command line, write:
+
+python -m pytest 
 
 ____________________________________________________________
 
@@ -49,6 +63,7 @@ pip install mysql-connector-python
 
 pip install requests
 
+pip install pytest
 
 
 
