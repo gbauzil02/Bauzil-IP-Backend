@@ -1151,7 +1151,7 @@ def rentMovie():
     cursor.execute(query, (film_id, store_id,))
     row_headers=[x[0] for x in cursor.description] #this will extract row headers
     myresult = cursor.fetchall()
-    if myresult == ():
+    if myresult == []:
         return ('', 404)
     else:
         json_data=[]
@@ -1169,7 +1169,7 @@ def rentMovie():
     cursor.execute(query, (film_id, store_id,))
     row_headers=[x[0] for x in cursor.description] #this will extract row headers
     myresult = cursor.fetchall()
-    if myresult == ():
+    if myresult == []:
         return ('', 404)
     else:
         json_data=[]
@@ -1336,7 +1336,7 @@ def rentPDF1():
     pdf.set_font('Times','',10.0) 
     pdf.cell(page_width, 0.0, '- end of report -', align='C')
         
-    return Response(pdf.output(dest='S').encode('latin-1'), mimetype='application/pdf', headers={'Content-Disposition':'attachment;filename=store1_rentals.pdf'})
+    return Response(pdf.output(dest='S').encode('latin-1'), status=201, mimetype='application/pdf', headers={'Content-Disposition':'attachment;filename=store1_rentals.pdf'})
 
 # Getting a pdf of all rentals for store 2  
 @app.route('/rentPDF2', methods=["GET"])
@@ -1392,4 +1392,11 @@ def rentPDF2():
     pdf.set_font('Times','',10.0) 
     pdf.cell(page_width, 0.0, '- end of report -', align='C')
         
-    return Response(pdf.output(dest='S').encode('latin-1'), mimetype='application/pdf', headers={'Content-Disposition':'attachment;filename=store2_rentals.pdf'})
+    return Response(pdf.output(dest='S').encode('latin-1'), status=201, mimetype='application/pdf', headers={'Content-Disposition':'attachment;filename=store2_rentals.pdf'})
+
+    
+
+
+
+
+
